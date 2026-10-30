@@ -138,6 +138,14 @@ async function run(src,name){
         if((m=l.match(/^([A-Za-z_]\w*)\s*=\s*ask\((.*)$/))){
           var q=parseText(m[2]);if(q===null)throw 'ask needs a question in quotes';
           vars[m[1]]=await askUser(insert(q,vars),id);
+        }else if((m=l.match(/^([A-Za-z_]\w*)\s*=\s*(.*)$/))){
+          var rhs=m[2].trim();
+          var t=parseText(rhs);
+          if(t!==null){
+            vars[m[1]]=insert(t,vars);
+          }else{
+            vars[m[1]]=bareValue(parseBare(rhs),vars);
+          }
         }else if((m=l.match(/^type\((.*)$/))){
           var t=parseText(m[1]);
           print(t!==null?insert(t,vars):bareValue(parseBare(m[1]),vars));
