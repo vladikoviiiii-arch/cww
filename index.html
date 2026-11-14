@@ -118,8 +118,14 @@ function bareValue(b,vars){
     if(Object.prototype.hasOwnProperty.call(vars,b))return vars[b];
     throw 'no variable named '+b;
   }
-  if(/^[\d+\-*\/%.() ]+$/.test(b)){
+  if(/^[\w+\-*\/%.() ]+$/.test(b)){
     if(count(b,'(')!==count(b,')'))throw 'math must be closed properly';
+    b=b.replace(/(?<![\w.])[A-Za-z_]\w*/g,function(n){
+      if(!Object.prototype.hasOwnProperty.call(vars,n))throw 'no variable named '+n;
+      var s=String(vars[n]).trim(),num=Number(s);
+      if(s===''||isNaN(num))throw n+' is not a number';
+      return '('+num+')';
+    });
     var v;try{v=Function('return ('+b+')')()}catch(e){throw 'could not work out that math'}
     if(typeof v!=='number'||!isFinite(v))throw 'could not work out that math';
     return String(v);
