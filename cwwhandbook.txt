@@ -1,6 +1,6 @@
 =====================================
  CWW HANDBOOK
- Version 2026 (v1.2)
+ Version 2026 (v1.3)
 =====================================
 
 ABOUT
@@ -34,6 +34,102 @@ type("hi
 wait(2) ""you can also do it like this: wait(2
 type("this is written in cww
 
+if x ? y then command
+  Runs the command only if the comparison is true.
+  Everything is on ONE line, and "then" is required.
+  Examples:
+    if fish > 3 then type("That's a lot of fish!")
+
+    if name = "bob" then type("hey bob")
+
+    if progress+1 > 5 then wait(2)
+
+  Comparison signs:
+    =    equal
+    !=   not equal
+    >    bigger than
+    <    smaller than
+    >=   bigger than or equal
+    <=   smaller than or equal
+
+  You can compare variables, numbers and text in quotes.
+  If both sides are numbers they are compared as numbers,
+  so an answer from ask() like "15" works with: age > 12
+  Text can only be compared with = and !=
+
+else:
+  Goes on the line right after an if. It runs only when
+  that if was NOT true. It must start with a tab or at
+  least 2 spaces so cww knows it belongs to the if.
+  Example:
+    if age >= 18 then type("welcome")
+      else: type("sorry, too young")
+
+  Blank lines and comments between the if and the else
+  are fine. An if can only have one else.
+
+for(v = i, t = 10, i1)
+  Repeats the lines under it, counting as it goes.
+    v  = variable, the name of the counter (here: i)
+    t  = target, where the counting stops
+    i1 = the step. Written as the counter's name
+         followed by how much to add each time.
+         i1 and i+1 count up, i-1 counts down.
+         If the counter is called "count", the step
+         is count1 (or count+1, count-1).
+
+  The lines to repeat go under the for, indented with a
+  tab or at least 2 spaces:
+
+    for(v = i, t = 3, i1)
+      type("round {i]")
+      wait(1)
+
+  Output:
+    round 1
+    round 2
+    round 3
+
+  The loop starts at 1 and includes the target, so
+  t = 10 counts 1 to 10. To start somewhere else add
+  s (start):
+
+    for(v = i, s = 0, t = 10, i1)
+
+  Counting down:
+
+    for(v = i, s = 10, t = 1, i-1)
+
+  The counter can be used in text ({i]) and in math (i*2).
+  There is no limit on how many times a loop can run,
+  so experiment! But see "BREAKING THE BROWSER" below.
+
+
+-------------------------------------
+ BREAKING THE BROWSER
+-------------------------------------
+
+If a for loop keeps running for 10 minutes without
+finishing, cww stops the program and shows:
+
+  [file name] is breaking your browser! Check the code
+  on line [line number] or try again. SPECIAL CODE: BL3X4
+
+The line number is the line of the for loop that was
+running when it was stopped. Time spent in wait() or
+waiting for an ask() answer does not count.
+
+To turn this off for a loop that is meant to run for a
+long time (for example in the background), put {intend)
+at the end of the for line:
+
+  for(v = i, t = 99999999, i1) {intend)
+
+The brackets are mismatched on purpose, just like {a].
+The loop then runs until it finishes, until you press
+Clear, or until the page crashes. A loop that prints a huge amount of text can crash the page before 10 minutes pass.
+
+
 -------------------------------------
  RULES
 -------------------------------------
@@ -49,11 +145,15 @@ type("this is written in cww
    Math equations must be closed properly so the
    interpreter knows where they end.
    Example: type(2+(3*4))
+   Math can use variables too. If age is 15:
+     type(age+1)      -> 16
+     next = (age*2)+1
+   Variables used in math must hold a number.
 
 3. COMMENTS START WITH ""  (two quotes)
    A single " is only used to start text.
 
-4. CLOSE BEFORE A COMMENT (recommended)
+4. CLOSE BEFORE A COMMENT (recommended, but optional)
    Good:  type("hello")""greets the world
    Risky: type("hello ""greets the world
    (if unclosed, "" still starts the comment)
@@ -65,7 +165,12 @@ type("this is written in cww
 
 7. type(something) anything inside round brackets only is a variable
 
-8. type("asd, {a]! {a] works just like python print(f"a [a]") function, except you dont have to type f! it can get printed as plain text if you put (dont) before it, write [a} or if there is no variable named a.
+8. type("asd, {a]! {a] works just like python print(f"a [a]") function, except you don't have to type f! it can get printed as plain text if you put (dont) before it, write [a} or if there is no variable named a.
+
+9. INDENTING
+   Lines under a for, and else: lines, must start with
+   a tab or at least 2 spaces. All other lines can be
+   indented or not, it makes no difference.
 
 
 -------------------------------------
@@ -84,6 +189,22 @@ Output:
 
 
 -------------------------------------
+ ANOTHER EXAMPLE (if, else and for)
+-------------------------------------
+
+""using if, else & for 101
+age = ask("how old are you?")
+if age >= 18 then type("welcome")
+  else: type("sorry, too young")
+for(v = i, t = 3, i1)
+  later = age+i
+  type("{i] year(s) from now you will be {later]")
+
+Note: inside text only a single variable name goes inside
+{ ]. To use math, calculate it first (like "later" above).
+
+
+-------------------------------------
  variable instead of text:
 -------------------------------------
 
@@ -93,17 +214,71 @@ Output:
 
 
 -------------------------------------
+ ERRORS
+-------------------------------------
+
+When something is wrong cww prints the line number and
+what happened, then carries on with the next line.
+
+general
+  I do not know that command
+  no variable named x
+  text needs quotes, variables do not
+  math must be closed properly
+  could not work out that math
+  wait needs a number of seconds
+  ask needs a question in quotes
+
+if
+  if needs then!
+  if needs something to compare!
+  nothing after then!
+  can't compare text with > or <!
+
+else
+  else needs if!
+  else needs a tab or 2 spaces before it!
+  else needs :
+  this if already has an else!
+  nothing after else:
+
+for
+  for needs v, t and a step!
+  v needs a variable name!
+  t needs a number!
+  s needs a number!
+  step must start with i!   (the counter's name)
+  step can't be 0!
+  this loop never ends!     (the step moves away from t)
+  nothing to repeat!
+  intend needs to be written {intend)!
+
+special
+  BL3X4 - the loop ran for 10 minutes, see
+          "BREAKING THE BROWSER"
+
+
+-------------------------------------
  IDEAS FOR FUTURE YEARS
 -------------------------------------
 
+printm("text")  writes text on the monitor (the screen)
+                instead of the console (m = monitor)
 shout("text")   prints in CAPS
-repeat(3) ...   runs a command several times
-math(...)       calculations
+random(1,6)     gives a random number
+clear()         clears the console
+clearm()        clears the monitor
+pick("a","b","c")  picks a random item
+today()         the date or time
 
 
 -------------------------------------
  CHANGELOG
 -------------------------------------
+
+2026 (v1.3): math with variables (age+1), if ... then,
+      else:, for(v = i, t = 10, i1), {intend), error
+      BL3X4
 
 2026: type, ask (with variables), "" comments,
       optional closing of " and ), wait(num)
