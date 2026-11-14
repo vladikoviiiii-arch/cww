@@ -123,7 +123,7 @@ function bareValue(b,vars){
     b=b.replace(/(?<![\w.])[A-Za-z_]\w*/g,function(n){
       if(!Object.prototype.hasOwnProperty.call(vars,n))throw 'no variable named '+n;
       var s=String(vars[n]).trim(),num=Number(s);
-      if(s===''||isNaN(num))throw n+' is not a number';
+      if(s===''||isNaN(num))throw 'could not work out that math';
       return '('+num+')';
     });
     var v;try{v=Function('return ('+b+')')()}catch(e){throw 'could not work out that math'}
@@ -133,42 +133,194 @@ function bareValue(b,vars){
   throw 'text needs quotes, variables do not';
 }
 async function run(src,name){
-  var id=++runId,vars={},lines=src.split(/\r?\n/),m;
+  var id=++runId,vars={},raw=src.split(/\r?\n/),LIMIT=600000;
+  var ctx={paused:0,loops:[],lastYield:performance.now()};
   out.innerHTML='';last={src:src,name:name};againBtn.disabled=false;
   print('$ run '+name,'cmd');print('');
-  try{
-    for(var n=0;n<lines.length;n++){
-      var l=stripComment(lines[n]).trim();
-      if(!l)continue;
-      try{
-        if((m=l.match(/^([A-Za-z_]\w*)\s*=\s*ask\((.*)$/))){
-          var q=parseText(m[2]);if(q===null)throw 'ask needs a question in quotes';
-          vars[m[1]]=await askUser(insert(q,vars),id);
-        }else if((m=l.match(/^([A-Za-z_]\w*)\s*=\s*(.*)$/))){
-          var rhs=m[2].trim();
-          var t=parseText(rhs);
-          if(t!==null){
-            vars[m[1]]=insert(t,vars);
-          }else{
-            vars[m[1]]=bareValue(parseBare(rhs),vars);
-          }
-        }else if((m=l.match(/^type\((.*)$/))){
-          var t=parseText(m[1]);
-          print(t!==null?insert(t,vars):bareValue(parseBare(m[1]),vars));
-        }else if((m=l.match(/^wait\((.*)$/))){
-          var b=parseBare(m[1]),s=/^[A-Za-z_]\w*$/.test(b)&&vars[b]!==undefined?vars[b]:b,sec=parseFloat(s);
-          if(isNaN(sec)||sec<0)throw 'wait needs a number of seconds';
-          print('[pause '+sec+'s]','dim');await sleep(sec*1000);
-        }else throw 'I do not know that command';
-      }catch(e){
-        if(e==='stop')return;
-        if(id!==runId)return;
-        print('line '+(n+1)+': '+e,'err');
-      }
-      if(id!==runId)return;
+  var items=[];
+  for(var k=0;k<raw.length;k++){
+    var tt=stripComment(raw[k]).trim();
+    if(tt)items.push({n:k+1,t:tt,ws:raw[k].match(/^[ \t]*/)[0]});
+  }
+  function indented(ws){return /^(\t| {2})/.test(ws)}
+  function unindent(ws){return ws.charAt(0)==='\t'?ws.slice(1):ws.slice(2)}
+  function stop(){if(id!==runId)throw 'stop'}
+  async function tick(){
+    stop();
+    if(performance.now()-ctx.lastYield>30){await sleep(0);ctx.lastYield=performance.now();stop()}
+    if(ctx.loops.length&&!ctx.loops.some(function(l){return l.intend})){
+      var lp=ctx.loops[0];
+      if(performance.now()-lp.start-(ctx.paused-lp.paused0)>LIMIT)throw {bl:true,n:ctx.loops[ctx.loops.length-1].n};
     }
+  }
+  function findThen(s){
+    var q=false;
+    for(var p=0;p<s.length;p++){
+      var c=s.charAt(p);
+      if(c==='"'){q=!q;continue}
+      if(!q&&s.substr(p,4)==='then'&&(p===0||/\s/.test(s.charAt(p-1)))&&(p+4>=s.length||/[\s(]/.test(s.charAt(p+4))))return p;
+    }
+    return -1;
+  }
+  function findOp(s){
+    var q=false;
+    for(var p=0;p<s.length;p++){
+      var c=s.charAt(p);
+      if(c==='"'){q=!q;continue}
+      if(q)continue;
+      var two=s.substr(p,2);
+      if(two==='>='||two==='<='||two==='!=')return {i:p,op:two};
+      if(c==='>'||c==='<'||c==='=')return {i:p,op:c};
+    }
+    return null;
+  }
+  function operand(s){
+    if(s.charAt(0)==='"'){var x=s.slice(1);if(x.slice(-1)==='"')x=x.slice(0,-1);return insert(x,vars)}
+    return bareValue(s,vars);
+  }
+  function asNum(x){var s=String(x).trim();return s===''||isNaN(Number(s))?null:Number(s)}
+  function evalIf(t){
+    var rest=t.replace(/^if\s+/,'');
+    var ti=findThen(rest);
+    if(ti<0)throw 'if needs then!';
+    var cond=rest.slice(0,ti).trim(),cmd=rest.slice(ti+4).trim();
+    if(!cmd)throw 'nothing after then!';
+    var o=findOp(cond);
+    if(!o)throw 'if needs something to compare!';
+    var left=cond.slice(0,o.i).trim(),right=cond.slice(o.i+o.op.length).trim();
+    if(!left||!right)throw 'if needs something to compare!';
+    var lv=operand(left),rv=operand(right),ln=asNum(lv),rn=asNum(rv),res;
+    if(ln!==null&&rn!==null){
+      res=o.op==='='?ln===rn:o.op==='!='?ln!==rn:o.op==='>'?ln>rn:o.op==='<'?ln<rn:o.op==='>='?ln>=rn:ln<=rn;
+    }else{
+      if(o.op!=='='&&o.op!=='!=')throw "can't compare text with > or <!";
+      res=o.op==='='?lv===rv:lv!==rv;
+    }
+    return {result:res,cmd:cmd};
+  }
+  function splitArgs(s){
+    var parts=[],d=0,cur='';
+    for(var p=0;p<s.length;p++){
+      var c=s.charAt(p);
+      if(c==='(')d++;else if(c===')')d--;
+      if(c===','&&d===0){parts.push(cur);cur=''}else cur+=c;
+    }
+    parts.push(cur);return parts;
+  }
+  function numVal(e,msg){
+    e=e.trim();if(e==='')throw msg;
+    var val;
+    if(e.charAt(0)==='"'){val=e.slice(1);if(val.slice(-1)==='"')val=val.slice(0,-1);val=insert(val,vars)}
+    else val=bareValue(e,vars);
+    var s=String(val).trim(),num=Number(s);
+    if(s===''||isNaN(num))throw msg;
+    return num;
+  }
+  async function execSimple(l){
+    var m;
+    if((m=l.match(/^([A-Za-z_]\w*)\s*=\s*ask\((.*)$/))){
+      var q=parseText(m[2]);if(q===null)throw 'ask needs a question in quotes';
+      var t0=performance.now();
+      var ans=await askUser(insert(q,vars),id);
+      ctx.paused+=performance.now()-t0;
+      vars[m[1]]=ans;
+    }else if((m=l.match(/^([A-Za-z_]\w*)\s*=\s*(.*)$/))){
+      var rhs=m[2].trim(),tx=parseText(rhs);
+      if(tx!==null)vars[m[1]]=insert(tx,vars);
+      else vars[m[1]]=bareValue(parseBare(rhs),vars);
+    }else if((m=l.match(/^type\((.*)$/))){
+      var tx2=parseText(m[1]);
+      print(tx2!==null?insert(tx2,vars):bareValue(parseBare(m[1]),vars));
+    }else if((m=l.match(/^wait\((.*)$/))){
+      var b=parseBare(m[1]),s=/^[A-Za-z_]\w*$/.test(b)&&vars[b]!==undefined?vars[b]:b,sec=parseFloat(s);
+      if(isNaN(sec)||sec<0)throw 'wait needs a number of seconds';
+      print('[pause '+sec+'s]','dim');
+      var t1=performance.now();
+      await sleep(sec*1000);
+      ctx.paused+=performance.now()-t1;
+    }else throw 'I do not know that command';
+  }
+  async function execFor(it,body){
+    var rest=it.t.replace(/^for\s*\(/,'');
+    var intend=false;
+    if(/\{intend[\]\}]\s*$/.test(rest))throw 'intend needs to be written {intend)!';
+    if(/\{intend\)\s*$/.test(rest)){intend=true;rest=rest.replace(/\{intend\)\s*$/,'').trim()}
+    while(rest.slice(-1)===')'&&count(rest,')')>count(rest,'('))rest=rest.slice(0,-1);
+    var parts=splitArgs(rest),keys={},step=null;
+    for(var p=0;p<parts.length;p++){
+      var km=parts[p].match(/^\s*([vst])\s*=\s*(.*)$/);
+      if(km)keys[km[1]]=km[2].trim();
+      else if(parts[p].trim()!==''){if(step!==null)throw 'for needs v, t and a step!';step=parts[p].trim()}
+    }
+    if(!keys.v||!keys.t||step===null)throw 'for needs v, t and a step!';
+    var v=keys.v;
+    if(!/^[A-Za-z_]\w*$/.test(v))throw 'v needs a variable name!';
+    var t=numVal(keys.t,'t needs a number!');
+    var s=keys.s!==undefined?numVal(keys.s,'s needs a number!'):1;
+    if(step.indexOf(v)!==0)throw 'step must start with '+v+'!';
+    var rem=step.slice(v.length).replace(/\s+/g,'');
+    if(!/^[+-]?\d+(\.\d+)?$/.test(rem))throw 'step must start with '+v+'!';
+    var inc=Number(rem);
+    if(inc===0)throw "step can't be 0!";
+    if(s!==t&&(t>s)!==(inc>0))throw 'this loop never ends!';
+    if(!body.length)throw 'nothing to repeat!';
+    ctx.loops.push({n:it.n,start:performance.now(),paused0:ctx.paused,intend:intend});
+    try{
+      for(var c=0;;c++){
+        var val=s+c*inc;
+        if(inc>0?val>t+1e-9:val<t-1e-9)break;
+        vars[v]=String(Math.round(val*1e9)/1e9);
+        await tick();
+        try{await execBlock(body,true)}catch(e){if(e==='loopbreak')break;throw e}
+      }
+    }finally{ctx.loops.pop()}
+  }
+  async function execBlock(list,inLoop){
+    var lastIf=null;
+    for(var i=0;i<list.length;i++){
+      stop();
+      var it=list[i],t=it.t;
+      try{
+        if(/^else(\s|:|$)/.test(t)&&!/^else\s*=/.test(t)){
+          if(!indented(it.ws))throw 'else needs a tab or 2 spaces before it!';
+          if(!lastIf)throw 'else needs if!';
+          if(lastIf.used)throw 'this if already has an else!';
+          var em=t.match(/^else\s*(:?)(.*)$/);
+          if(!em[1])throw 'else needs :';
+          var ec=em[2].trim();
+          if(!ec)throw 'nothing after else:';
+          lastIf.used=true;
+          if(!lastIf.result)await execSimple(ec);
+        }else if(/^if\s/.test(t)&&!/^if\s*=/.test(t)){
+          lastIf={result:true,used:false};
+          var r=evalIf(t);
+          lastIf.result=r.result;
+          if(r.result)await execSimple(r.cmd);
+        }else if(/^for\s*\(/.test(t)){
+          lastIf=null;
+          var body=[],j=i+1;
+          while(j<list.length&&indented(list[j].ws)){body.push({n:list[j].n,t:list[j].t,ws:unindent(list[j].ws)});j++}
+          i=j-1;
+          await execFor(it,body);
+        }else{
+          lastIf=null;
+          await execSimple(t);
+        }
+      }catch(e){
+        if(typeof e!=='string'||e==='stop'||e==='loopbreak')throw e;
+        print('line '+it.n+': '+e,'err');
+        if(inLoop)throw 'loopbreak';
+      }
+    }
+  }
+  try{
+    await execBlock(items,false);
+    stop();
     print('');print('[program finished]','ok');
-  }catch(e){}
+  }catch(e){
+    if(e&&e.bl){print('');print(name+' is breaking your browser! Check the code on line '+e.n+' or try again. SPECIAL CODE: BL3X4','err')}
+    else if(e!=='stop')print('internal error: '+e,'err');
+  }
 }
 function loadFile(f){
   if(!f)return;
