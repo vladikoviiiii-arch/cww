@@ -1,0 +1,115 @@
+=====================================
+ CWW HANDBOOK
+ Version 2026 (v1.2)
+=====================================
+
+ABOUT
+CWW is a small hobby language that grows a little
+every year. Files end in .cww (example: helloworld.cww).
+Written in VS Code. Until a real interpreter exists,
+programs are ran by loading files into the website.
+
+
+-------------------------------------
+ COMMANDS (2026)
+-------------------------------------
+
+type("text")
+  Prints the text.
+  Example:  type("hello")   -> hello
+
+name = ask("question")
+  Shows the question, waits for the user's answer,
+  and saves the answer in a variable called name.
+  Example:  higuys = ask("how ya doing")
+
+""comment
+  Everything after "" on a line is ignored.
+  Works anywhere on a line, not just at the start.
+
+wait(num)
+ Pauses the code for an x amount of time and then proceeds. Example:
+
+type("hi
+wait(2) ""you can also do it like this: wait(2
+type("this is written in cww
+
+-------------------------------------
+ RULES
+-------------------------------------
+
+1. CLOSING IS OPTIONAL
+   You can leave off the last " and ) on a line.
+   These all do the same thing:
+     type("hello
+     type("hello"
+     type("hello")
+
+2. MATH IS THE EXCEPTION
+   Math equations must be closed properly so the
+   interpreter knows where they end.
+   Example: type(2+(3*4))
+
+3. COMMENTS START WITH ""  (two quotes)
+   A single " is only used to start text.
+
+4. CLOSE BEFORE A COMMENT (recommended)
+   Good:  type("hello")""greets the world
+   Risky: type("hello ""greets the world
+   (if unclosed, "" still starts the comment)
+
+5. ANYTHING INSIDE QUOTES IS TEXT
+   type("cww 26'")  prints  cww 26'
+
+6. BLANK LINES DO NOTHING
+
+7. type(something) anything inside round brackets only is a variable
+
+8. type("asd, {a]! {a] works just like python print(f"a [a]") function, except you dont have to type f! it can get printed as plain text if you put (dont) before it, write [a} or if there is no variable named a.
+
+
+-------------------------------------
+ EXAMPLE PROGRAM
+-------------------------------------
+
+""my first cww program
+type("hello")""greets the world
+higuys = ask("how ya doing
+type("cww 26")
+
+Output:
+  hello
+  how ya doing   (waits for an answer)
+  cww 26
+
+
+-------------------------------------
+ variable instead of text:
+-------------------------------------
+
+- How to print a variable.
+  variable: type(higuys)  -> no quotes means "variable name"
+  vs type("hello") with quotes means "text".
+
+
+-------------------------------------
+ IDEAS FOR FUTURE YEARS
+-------------------------------------
+
+shout("text")   prints in CAPS
+repeat(3) ...   runs a command several times
+math(...)       calculations
+
+
+-------------------------------------
+ CHANGELOG
+-------------------------------------
+
+2026: type, ask (with variables), "" comments,
+      optional closing of " and ), wait(num)
+
+
+
+web: https://github.io/vladikoviiiii-arch/cww/
+
+cww is an open-source project that isn't owned by any company, nor its affiliated with a company. Please not that cww is an early project. cww doesn't send your data to anyone or collects it. This website is in alpha access, so most of the features are still missing. Do not use cww to hack anyone, cause harm or anything illegal! Thank you for reading this and using cww!
