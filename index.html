@@ -107,9 +107,9 @@ function parseBare(rest){
   return s.trim();
 }
 function insert(t,vars){
-  return t.replace(/(\(dont\))?\{(\w+)\]/g,function(m,esc,n){
-    if(esc)return '{'+n+']';
-    return Object.prototype.hasOwnProperty.call(vars,n)?vars[n]:m;
+  return t.replace(/(\(dont\))?\{([^{}\]]+)\]/g,function(m,esc,inner){
+    if(esc)return '{'+inner+']';
+    try{return bareValue(inner.trim(),vars)}catch(e){return m}
   });
 }
 function bareValue(b,vars){
